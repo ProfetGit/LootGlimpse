@@ -1,0 +1,13 @@
+## Interface: 110000
+## IconTexture: Interface\AddOns\LootGlimpse\LootGlimpse.png
+## Title: LootGlimpse
+## Notes: Displays looted items in a separate UI component.
+## Author: Antigravity
+## Version: 1.0.0
+## SavedVariables: LootGlimpseDB
+## OptionalDeps: Ace3, EditModeExpanded-1.0, LibSharedMedia-3.0
+## X-Embeds: Ace3, EditModeExpanded-1.0
+
+embeds.xml
+Core.lua
+Config.lua

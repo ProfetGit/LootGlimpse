@@ -1,0 +1,5 @@
+externals:
+    Libs/Ace3:
+        url: https://www.wowace.com/projects/ace3/repositories/git
+    Libs/EditModeExpanded-1.0:
+        url: https://github.com/Ennea/EditModeExpanded
