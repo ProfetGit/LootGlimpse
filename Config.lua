@@ -10,6 +10,48 @@ function LootGlimpse:SetupOptions()
     -- General Section
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("General"))
 
+    -- Helper to create slider with value label
+    local function CreateSliderWithLabel(category, setting, options, tooltip)
+        local initializer = Settings.CreateSlider(category, setting, options, tooltip)
+        local originalInit = initializer.InitFrame
+        initializer.InitFrame = function(self, frame)
+            originalInit(self, frame)
+            
+            local slider = frame.Slider 
+            if not slider and frame.SliderWithSteppers then
+                slider = frame.SliderWithSteppers.Slider
+            end
+            
+            local label = frame.RightText or frame.ValueText
+            
+            if not label then
+                label = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+                -- Anchor to the main frame or slider if found
+                local anchor = slider or frame
+                label:SetPoint("LEFT", anchor, "RIGHT", 15, 0)
+                frame.ValueText = label
+            end
+            label:Show()
+            
+            local function UpdateText(value)
+                if options.formatter then
+                    label:SetText(options.formatter(value))
+                else
+                    label:SetText(value)
+                end
+            end
+            
+            UpdateText(setting:GetValue())
+            
+            if slider and slider.HookScript then
+                slider:HookScript("OnValueChanged", function(_, value)
+                    UpdateText(value)
+                end)
+            end
+        end
+        return initializer
+    end
+
     -- Preview Mode (Checkbox with Proxy)
     local function GetPreview() return self.previewFrames ~= nil end
     local function SetPreview(value) self:TogglePreview(value) end
@@ -52,7 +94,13 @@ function LootGlimpse:SetupOptions()
         "Duration",
         4
     )
-    Settings.CreateSlider(category, durationSetting, { minValue = 1, maxValue = 10, step = 0.5, steps = 18, formatter = function(value) return string.format("%.1f s", value) end }, "How long the loot is shown (seconds)")
+    CreateSliderWithLabel(category, durationSetting, { 
+        minValue = 1, maxValue = 10, 
+        min = 1, max = 10,
+        step = 0.5, 
+        steps = 18,
+        formatter = function(value) return string.format("%.1f s", value) end 
+    }, "How long the loot is shown (seconds)")
 
     -- Grow Direction (Dropdown with Proxy for UpdateLayout)
     local function GetGrowDir() return self.db.profile.growDirection end
@@ -163,7 +211,13 @@ function LootGlimpse:SetupOptions()
         GetFontSize,
         SetFontSize
     )
-    Settings.CreateSlider(category, fontSizeSetting, { minValue = 8, maxValue = 32, step = 1, steps = 24, formatter = function(value) return string.format("%d", value) end }, "Size of the font")
+    CreateSliderWithLabel(category, fontSizeSetting, { 
+        minValue = 8, maxValue = 32, 
+        min = 8, max = 32,
+        step = 1, 
+        steps = 24,
+        formatter = function(value) return string.format("%d", value) end 
+    }, "Size of the font")
 
     -- Font Outline (Dropdown with Proxy)
     local function GetFontOutline() return self.db.profile.fontOutline end
@@ -234,7 +288,13 @@ function LootGlimpse:SetupOptions()
         GetGradient,
         SetGradient
     )
-    Settings.CreateSlider(category, gradientSetting, { minValue = 0, maxValue = 1, step = 0.05, steps = 20, formatter = function(value) return string.format("%d%%", value * 100) end }, "Intensity of the gold gradient background (Classic Theme)")
+    CreateSliderWithLabel(category, gradientSetting, { 
+        minValue = 0, maxValue = 1, 
+        min = 0, max = 1,
+        step = 0.05, 
+        steps = 20,
+        formatter = function(value) return string.format("%d%%", value * 100) end 
+    }, "Intensity of the gold gradient background (Classic Theme)")
 
     -- Background Color (Button with Swatch)
     local function UpdateSwatch(frame)

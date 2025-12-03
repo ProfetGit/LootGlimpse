@@ -115,18 +115,28 @@ function LootGlimpse:SlashCommand(input)
     if cmd == "test" then
         if arg == "waterfall" then
              -- Spawn multiple items
+             -- Spawn items of every rarity
              local items = {
-                 { "Hearthstone", 1, "Interface\\Icons\\inv_misc_rune_01", 1, "item:6948" },
-                 { "Epic Sword", 1, "Interface\\Icons\\INV_Sword_04", 4, "item:19019" },
-                 { "Rare Shield", 1, "Interface\\Icons\\INV_Shield_05", 3, "item:1204" },
-                 { "Common Apple", 5, "Interface\\Icons\\INV_Misc_Food_15", 1, "item:4536" },
-                 { "Legendary Bow", 1, "Interface\\Icons\\INV_Weapon_Bow_01", 5, "item:19019" },
+                 750,    -- Poor (Ruined Pelt)
+                 6948,   -- Common (Hearthstone)
+                 2520,   -- Uncommon (Copper Claymore)
+                 1482,   -- Rare (Shadowfang)
+                 873,    -- Epic (Staff of Jordan)
+                 19019,  -- Legendary (Thunderfury)
+                 120978, -- Artifact (Ashbringer)
+                 122370, -- Heirloom (Burnished Polished Breastplate)
              }
              
              local delay = 0
-             for _, item in ipairs(items) do
+             for _, itemID in ipairs(items) do
                  C_Timer.After(delay, function()
-                     self:QueueLootDisplay(unpack(item))
+                     local item = Item:CreateFromItemID(itemID)
+                     item:ContinueOnItemLoad(function()
+                         local name, link, quality, _, _, _, _, _, _, texture = C_Item.GetItemInfo(itemID)
+                         if name then
+                             self:QueueLootDisplay(name, 1, texture, quality, link)
+                         end
+                     end)
                  end)
                  delay = delay + 0.3
              end
@@ -216,6 +226,7 @@ function LootGlimpse:GetFrame()
         f.text:SetPoint("LEFT", f.icon, "RIGHT", 10, 0)
         f.text:SetPoint("RIGHT", -5, 0)
         f.text:SetJustifyH("LEFT")
+        f.text:SetWordWrap(false)
         
         -- Background
         f.bg = f.content:CreateTexture(nil, "BACKGROUND")
@@ -314,6 +325,16 @@ function LootGlimpse:GetFrame()
     return f
 end
 
+function LootGlimpse:UpdateFrameSize(f)
+    local iconSize = 40
+    local padding = 10
+    local textWidth = f.text:GetStringWidth() or 0
+    local totalWidth = 5 + iconSize + padding + textWidth + 15
+    
+    if totalWidth < 150 then totalWidth = 150 end
+    f:SetWidth(totalWidth)
+end
+
 function LootGlimpse:ApplyVisuals(f)
     local db = self.db.profile
     
@@ -340,6 +361,7 @@ function LootGlimpse:ApplyVisuals(f)
     end
     
     self:UpdateBackground(f)
+    self:UpdateFrameSize(f)
 end
 
 function LootGlimpse:UpdateBackground(f)
@@ -414,6 +436,7 @@ end
 
 
 function LootGlimpse:RecycleFrame(f)
+    f.isPreview = nil
     f:Hide()
     f:ClearAllPoints()
     -- Remove from active frames
@@ -463,13 +486,7 @@ function LootGlimpse:QueueLootDisplay(name, quantity, texture, quality, link)
     table.insert(self.activeFrames, f)
     
     -- Dynamic Sizing
-    local iconSize = 40 -- Fixed
-    local padding = 10
-    local textWidth = f.text:GetStringWidth()
-    local totalWidth = 5 + iconSize + padding + textWidth + 15
-    
-    if totalWidth < 150 then totalWidth = 150 end
-    f:SetWidth(totalWidth)
+    self:UpdateFrameSize(f)
     
     self:UpdateLayout()
     
@@ -599,12 +616,15 @@ function LootGlimpse:TogglePreview(show)
         if not self.previewFrames then
             self.previewFrames = {}
             
-            local previewItems = {
-                { name = "Hearthstone", count = 1, texture = "Interface\\Icons\\inv_misc_rune_01", quality = 1, link = "item:6948" },
-                { name = "Epic Sword of Awesomeness", count = 1, texture = "Interface\\Icons\\INV_Sword_04", quality = 4, link = "item:19019" },
-                { name = "Rare Shield", count = 1, texture = "Interface\\Icons\\INV_Shield_05", quality = 3, link = "item:1204" },
-                { name = "Common Apple", count = 5, texture = "Interface\\Icons\\INV_Misc_Food_15", quality = 1, link = "item:4536" },
-                { name = "Legendary Bow", count = 1, texture = "Interface\\Icons\\INV_Weapon_Bow_01", quality = 5, link = "item:19019" },
+            local previewItemIDs = {
+                 750,    -- Poor (Ruined Pelt)
+                 6948,   -- Common (Hearthstone)
+                 2520,   -- Uncommon (Copper Claymore)
+                 1482,   -- Rare (Shadowfang)
+                 873,    -- Epic (Staff of Jordan)
+                 19019,  -- Legendary (Thunderfury)
+                 120978, -- Artifact (Ashbringer)
+                 122370, -- Heirloom (Burnished Polished Breastplate)
             }
             
             local maxItems = self.db.profile.maxItems or 5
@@ -612,37 +632,40 @@ function LootGlimpse:TogglePreview(show)
             -- Generate exactly maxItems for preview
             for i = 1, maxItems do
                 -- Cycle through example items
-                local itemTemplate = previewItems[(i - 1) % #previewItems + 1]
+                local itemID = previewItemIDs[(i - 1) % #previewItemIDs + 1]
                 
                 local f = self:GetFrame()
+                f.isPreview = true
                 
-                f.icon:SetTexture(itemTemplate.texture)
+                -- Default/Loading state
+                f.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+                f.text:SetText("Loading...")
+                f.count:Hide()
                 
-                if itemTemplate.quality then
-                    local r, g, b, hex = C_Item.GetItemQualityColor(itemTemplate.quality)
-                    f.text:SetText("|c" .. hex .. itemTemplate.name .. "|r")
-                else
-                    f.text:SetText(itemTemplate.name)
-                end
-                
-                if itemTemplate.count > 1 then
-                    f.count:SetText(itemTemplate.count)
-                    f.count:Show()
-                else
-                    f.count:Hide()
-                end
-                
-                f.quality = itemTemplate.quality
-                f.link = itemTemplate.link
-                self:UpdateBackground(f)
-                
-                -- Dynamic Sizing logic
-                local iconSize = 40
-                local padding = 10
-                local textWidth = f.text:GetStringWidth()
-                local totalWidth = 5 + iconSize + padding + textWidth + 15
-                if totalWidth < 150 then totalWidth = 150 end
-                f:SetWidth(totalWidth)
+                local item = Item:CreateFromItemID(itemID)
+                item:ContinueOnItemLoad(function()
+                    if not f.isPreview then return end
+                    
+                    local name, link, quality, _, _, _, _, _, _, texture = C_Item.GetItemInfo(itemID)
+                    
+                    if name then
+                        f.icon:SetTexture(texture)
+                        
+                        if quality then
+                            local r, g, b, hex = C_Item.GetItemQualityColor(quality)
+                            f.text:SetText("|c" .. hex .. name .. "|r")
+                        else
+                            f.text:SetText(name)
+                        end
+                        
+                        f.quality = quality
+                        f.link = link
+                        self:UpdateBackground(f)
+                        
+                        -- Dynamic Sizing logic
+                        self:UpdateFrameSize(f)
+                    end
+                end)
 
                 f:Show()
                 f:SetAlpha(1)
