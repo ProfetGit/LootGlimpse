@@ -5,6 +5,7 @@ function LootGlimpse:GetFrame()
     local f = table.remove(self.framePool)
     if not f then
         f = CreateFrame("Frame", nil, self.anchor, "BackdropTemplate")
+        f:SetClipsChildren(true)
         
         -- Content Frame (for animation isolation)
         f.content = CreateFrame("Frame", nil, f)
@@ -115,7 +116,9 @@ function LootGlimpse:GetFrame()
     f.animOutGroup:Stop()
     if f.holdTimer then f.holdTimer:Cancel() f.holdTimer = nil end
     f.link = nil
+    f.link = nil
     f.isHovered = false
+    f.isExiting = false
     
     -- Apply Visuals
     self:ApplyVisuals(f)
@@ -272,13 +275,22 @@ function LootGlimpse:QueueLootDisplay(name, quantity, texture, quality, link)
     
     self:UpdateBackground(f)
     
-    -- Enforce Max Items
+    -- Enforce Max Items (Soft Limit)
     local maxItems = self.db.profile.maxItems or 5
-    while #self.activeFrames >= maxItems do
-        self:RecycleFrame(self.activeFrames[1])
-    end
-    
     table.insert(self.activeFrames, f)
+    
+    local excess = #self.activeFrames - maxItems
+    if excess > 0 then
+        for i = 1, excess do
+            local frame = self.activeFrames[i]
+            if not frame.isExiting then
+                frame.isExiting = true
+                frame.animInGroup:Stop()
+                if frame.holdTimer then frame.holdTimer:Cancel() frame.holdTimer = nil end
+                frame.animOutGroup:Play()
+            end
+        end
+    end
     
     -- Dynamic Sizing
     self:UpdateFrameSize(f)
@@ -312,11 +324,45 @@ function LootGlimpse:SetupAnimation(f)
         animIn:SetOrder(1)
         
         -- OUT
-        local animOut = f.animOutGroup:CreateAnimation("Alpha")
-        animOut:SetFromAlpha(1)
-        animOut:SetToAlpha(0)
-        animOut:SetDuration(0.5)
-        animOut:SetOrder(1)
+        -- OUT
+        local animOut1 = f.animOutGroup:CreateAnimation("Alpha")
+        animOut1:SetFromAlpha(1)
+        animOut1:SetToAlpha(0)
+        animOut1:SetDuration(0.2)
+        animOut1:SetOrder(1)
+        
+        -- Dummy animation to keep the group running during shrink
+        local animOut2 = f.animOutGroup:CreateAnimation("Alpha")
+        animOut2:SetFromAlpha(0)
+        animOut2:SetToAlpha(0)
+        animOut2:SetDuration(0.3)
+        animOut2:SetOrder(2)
+        
+        f.animOutGroup:SetScript("OnPlay", function()
+            local startHeight = 50 -- Fixed ITEM_HEIGHT
+            local totalDuration = 0.5
+            local fadeDuration = 0.2
+            local shrinkDuration = 0.3
+            local elapsed = 0
+            
+            f:SetScript("OnUpdate", function(self, dt)
+                elapsed = elapsed + dt
+                if elapsed < fadeDuration then
+                    self:SetHeight(startHeight)
+                elseif elapsed < totalDuration then
+                    local progress = (elapsed - fadeDuration) / shrinkDuration
+                    local newHeight = startHeight * (1 - progress)
+                    self:SetHeight(newHeight)
+                else
+                    self:SetHeight(0)
+                    self:SetScript("OnUpdate", nil)
+                end
+            end)
+        end)
+        f.animOutGroup:SetScript("OnStop", function()
+            f:SetScript("OnUpdate", nil)
+            f:SetHeight(50) -- Reset height if stopped
+        end)
         
     elseif type == "Slide" then
         -- IN
@@ -340,11 +386,33 @@ function LootGlimpse:SetupAnimation(f)
         end)
         
         -- OUT
+        -- OUT
         local animOut = f.animOutGroup:CreateAnimation("Alpha")
         animOut:SetFromAlpha(1)
         animOut:SetToAlpha(0)
         animOut:SetDuration(0.5)
         animOut:SetOrder(1)
+
+        f.animOutGroup:SetScript("OnPlay", function()
+            local startHeight = 50 -- Fixed ITEM_HEIGHT
+            local duration = 0.5
+            local elapsed = 0
+            f:SetScript("OnUpdate", function(self, dt)
+                elapsed = elapsed + dt
+                if elapsed >= duration then
+                    self:SetHeight(0)
+                    self:SetScript("OnUpdate", nil)
+                else
+                    local progress = elapsed / duration
+                    local newHeight = startHeight * (1 - progress)
+                    self:SetHeight(newHeight)
+                end
+            end)
+        end)
+        f.animOutGroup:SetScript("OnStop", function()
+            f:SetScript("OnUpdate", nil)
+            f:SetHeight(50)
+        end)
         
     elseif type == "Pop" then
         -- IN
@@ -367,11 +435,33 @@ function LootGlimpse:SetupAnimation(f)
         animInAlpha:SetOrder(1)
         
         -- OUT
+        -- OUT
         local animOut = f.animOutGroup:CreateAnimation("Alpha")
         animOut:SetFromAlpha(1)
         animOut:SetToAlpha(0)
         animOut:SetDuration(0.5)
         animOut:SetOrder(1)
+
+        f.animOutGroup:SetScript("OnPlay", function()
+            local startHeight = 50 -- Fixed ITEM_HEIGHT
+            local duration = 0.5
+            local elapsed = 0
+            f:SetScript("OnUpdate", function(self, dt)
+                elapsed = elapsed + dt
+                if elapsed >= duration then
+                    self:SetHeight(0)
+                    self:SetScript("OnUpdate", nil)
+                else
+                    local progress = elapsed / duration
+                    local newHeight = startHeight * (1 - progress)
+                    self:SetHeight(newHeight)
+                end
+            end)
+        end)
+        f.animOutGroup:SetScript("OnStop", function()
+            f:SetScript("OnUpdate", nil)
+            f:SetHeight(50)
+        end)
     end
 end
 
