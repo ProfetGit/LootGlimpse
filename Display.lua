@@ -1,0 +1,485 @@
+local LootGlimpse = LibStub("AceAddon-3.0"):GetAddon("LootGlimpse")
+local LSM = LibStub("LibSharedMedia-3.0", true)
+
+function LootGlimpse:GetFrame()
+    local f = table.remove(self.framePool)
+    if not f then
+        f = CreateFrame("Frame", nil, self.anchor, "BackdropTemplate")
+        
+        -- Content Frame (for animation isolation)
+        f.content = CreateFrame("Frame", nil, f)
+        f.content:SetAllPoints(f)
+        
+        -- Icon
+        f.icon = f.content:CreateTexture(nil, "ARTWORK")
+        f.icon:SetPoint("LEFT", 5, 0)
+
+        -- Count
+        f.count = f.content:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+        f.count:SetPoint("BOTTOMRIGHT", f.icon, "BOTTOMRIGHT", -2, 2)
+        f.count:SetJustifyH("RIGHT")
+        
+        -- Text
+        f.text = f.content:CreateFontString(nil, "OVERLAY", "SystemFont_Shadow_Med1")
+        f.text:SetPoint("LEFT", f.icon, "RIGHT", 10, 0)
+        f.text:SetPoint("RIGHT", -5, 0)
+        f.text:SetJustifyH("LEFT")
+        f.text:SetWordWrap(false)
+        
+        -- Background
+        f.bg = f.content:CreateTexture(nil, "BACKGROUND")
+        f.bg:SetAllPoints(f.content)
+        
+        -- Border (Custom for fading effect)
+        f.borderLeft = f.content:CreateTexture(nil, "BORDER")
+        f.borderLeft:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, 0)
+        f.borderLeft:SetPoint("BOTTOMLEFT", f.content, "BOTTOMLEFT", 0, 0)
+        f.borderLeft:SetWidth(1)
+        
+        f.borderTop = f.content:CreateTexture(nil, "BORDER")
+        f.borderTop:SetPoint("TOPLEFT", f.content, "TOPLEFT", 0, 0)
+        f.borderTop:SetPoint("TOPRIGHT", f.content, "TOPRIGHT", 0, 0)
+        f.borderTop:SetHeight(1)
+        
+        f.borderBottom = f.content:CreateTexture(nil, "BORDER")
+        f.borderBottom:SetPoint("BOTTOMLEFT", f.content, "BOTTOMLEFT", 0, 0)
+        f.borderBottom:SetPoint("BOTTOMRIGHT", f.content, "BOTTOMRIGHT", 0, 0)
+        f.borderBottom:SetHeight(1)
+
+        -- Animation Groups (Attached to content)
+        f.animInGroup = f.content:CreateAnimationGroup()
+        f.animInGroup:SetScript("OnFinished", function()
+             -- Reset Content Position
+             f.content:ClearAllPoints()
+             f.content:SetAllPoints(f)
+             
+             -- Start Hold Timer
+             local duration = tonumber(self.db.profile.duration) or 4
+             f.holdTimer = C_Timer.NewTimer(duration, function()
+                 f.animOutGroup:Play()
+             end)
+        end)
+
+        f.animOutGroup = f.content:CreateAnimationGroup()
+        f.animOutGroup:SetScript("OnFinished", function()
+            self:RecycleFrame(f)
+        end)
+
+        -- Mouse Interaction (Keep on f)
+        f:EnableMouse(true)
+        f:SetScript("OnEnter", function(self)
+            -- Stop Exit Animation if playing
+            if self.animOutGroup:IsPlaying() then
+                self.animOutGroup:Stop()
+            end
+            
+            -- Cancel Hold Timer
+            if self.holdTimer then
+                self.holdTimer:Cancel()
+                self.holdTimer = nil
+            end
+            
+            self:SetAlpha(1)
+            self.isHovered = true
+            LootGlimpse:UpdateBackground(self)
+            
+            if self.link then
+                GameTooltip:SetOwner(self, "ANCHOR_NONE")
+                GameTooltip:SetPoint("TOPRIGHT", self.icon, "TOPLEFT", -5, 0)
+                GameTooltip:SetHyperlink(self.link)
+                GameTooltip:Show()
+            end
+        end)
+        f:SetScript("OnLeave", function(self)
+            GameTooltip:Hide()
+            self.isHovered = false
+            LootGlimpse:UpdateBackground(self)
+            
+            -- Restart Hold Timer
+            local duration = tonumber(LootGlimpse.db.profile.duration) or 4
+            self.holdTimer = C_Timer.NewTimer(duration, function()
+                 self.animOutGroup:Play()
+            end)
+        end)
+    end
+    
+    -- Ensure parent is correct (inherits scale)
+    f:SetParent(self.anchor)
+    
+    -- Reset State
+    f:SetAlpha(1)
+    f:Show()
+    f.content:ClearAllPoints()
+    f.content:SetAllPoints(f)
+    f.animInGroup:Stop()
+    f.animOutGroup:Stop()
+    if f.holdTimer then f.holdTimer:Cancel() f.holdTimer = nil end
+    f.link = nil
+    f.isHovered = false
+    
+    -- Apply Visuals
+    self:ApplyVisuals(f)
+    
+    return f
+end
+
+function LootGlimpse:UpdateFrameSize(f)
+    local iconSize = 40
+    local padding = 10
+    local textWidth = f.text:GetStringWidth() or 0
+    local totalWidth = 5 + iconSize + padding + textWidth + 15
+    
+    if totalWidth < 150 then totalWidth = 150 end
+    f:SetWidth(totalWidth)
+end
+
+function LootGlimpse:ApplyVisuals(f)
+    local db = self.db.profile
+    
+    -- Fixed sizes as requested
+    local ITEM_HEIGHT = 50
+    local ICON_SIZE = 40
+    
+    f:SetHeight(ITEM_HEIGHT)
+    f.icon:SetSize(ICON_SIZE, ICON_SIZE)
+    
+    -- Font
+    local fontPath = LSM and LSM:Fetch("font", db.font) or "Fonts\\FRIZQT__.TTF"
+    if not fontPath then fontPath = "Fonts\\FRIZQT__.TTF" end
+    
+    local outline = db.fontOutline
+    if outline == "NONE" then outline = "" end
+    
+    f.text:SetFont(fontPath, db.fontSize, outline)
+    
+    -- Force text refresh to ensure font change applies
+    local currentText = f.text:GetText()
+    if currentText then
+        f.text:SetText(currentText)
+    end
+    
+    self:UpdateBackground(f)
+    self:UpdateFrameSize(f)
+end
+
+function LootGlimpse:UpdateBackground(f)
+    local db = self.db.profile
+    
+    -- Determine Color
+    local c = db.backgroundColor
+    local r, g, b, a = c.r, c.g, c.b, c.a
+    
+    if db.useQualityBackground and f.quality then
+        r, g, b = C_Item.GetItemQualityColor(f.quality)
+        a = 0.5 -- Force alpha for quality background to avoid being too dark/transparent
+    end
+
+    -- Hover Effect: Brighten background significantly
+    local hoverBoost = 0
+    if f.isHovered then
+        hoverBoost = 0.3
+        r = math.min(1, r + hoverBoost)
+        g = math.min(1, g + hoverBoost)
+        b = math.min(1, b + hoverBoost)
+        a = math.min(1, a + hoverBoost)
+    end
+
+    -- Background & Theme
+    if db.backdropTheme == "Classic" then
+        f.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+        local intensity = db.gradientIntensity + hoverBoost
+        if intensity < 0.2 then intensity = 0.2 end
+        if intensity > 1 then intensity = 1 end
+        
+        f.bg:SetGradient("HORIZONTAL", CreateColor(r, g, b, intensity), CreateColor(r, g, b, 0))
+        
+        -- Borders (Fade Effect)
+        f.borderLeft:SetColorTexture(r, g, b, 1)
+        f.borderLeft:Show()
+        
+        f.borderTop:SetGradient("HORIZONTAL", CreateColor(r, g, b, 1), CreateColor(r, g, b, 0))
+        f.borderTop:Show()
+        
+        f.borderBottom:SetGradient("HORIZONTAL", CreateColor(r, g, b, 1), CreateColor(r, g, b, 0))
+        f.borderBottom:Show()
+        
+    elseif db.backdropTheme == "Solid" then
+        f.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
+        f.bg:SetColorTexture(r, g, b, a)
+        
+        f.borderLeft:Hide()
+        f.borderTop:Hide()
+        f.borderBottom:Hide()
+        
+    elseif db.backdropTheme == "Minimal" then
+        if f.isHovered then
+            f.bg:SetColorTexture(r, g, b, a)
+        else
+            f.bg:SetColorTexture(0, 0, 0, 0)
+        end
+        
+        f.borderLeft:Hide()
+        f.borderTop:Hide()
+        f.borderBottom:Hide()
+    end
+end
+
+function LootGlimpse:UpdateVisuals()
+    for _, f in ipairs(self.activeFrames) do
+        self:ApplyVisuals(f)
+    end
+end
+
+function LootGlimpse:RecycleFrame(f)
+    f.isPreview = nil
+    f:Hide()
+    f:ClearAllPoints()
+    -- Remove from active frames
+    for i, frame in ipairs(self.activeFrames) do
+        if frame == f then
+            table.remove(self.activeFrames, i)
+            break
+        end
+    end
+    -- Re-anchor remaining frames
+    self:UpdateLayout()
+    
+    table.insert(self.framePool, f)
+end
+
+function LootGlimpse:QueueLootDisplay(name, quantity, texture, quality, link)
+    local f = self:GetFrame()
+    
+    f.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
+    f.quality = quality -- Store for updates
+    f.link = link
+    
+    local text = name
+    
+    if quantity and tonumber(quantity) > 1 then
+        f.count:SetText(quantity)
+        f.count:Show()
+    else
+        f.count:Hide()
+    end
+    
+    if quality then
+        local r, g, b, hex = C_Item.GetItemQualityColor(quality)
+        f.text:SetText("|c" .. hex .. text .. "|r")
+    else
+        f.text:SetText(text)
+    end
+    
+    self:UpdateBackground(f)
+    
+    -- Enforce Max Items
+    local maxItems = self.db.profile.maxItems or 5
+    while #self.activeFrames >= maxItems do
+        self:RecycleFrame(self.activeFrames[1])
+    end
+    
+    table.insert(self.activeFrames, f)
+    
+    -- Dynamic Sizing
+    self:UpdateFrameSize(f)
+    
+    self:UpdateLayout()
+    
+    -- Setup Animation based on type
+    self:SetupAnimation(f)
+    
+    f:Show()
+    f.animInGroup:Play()
+end
+
+function LootGlimpse:SetupAnimation(f)
+    -- Clear existing animations
+    if f.animInGroup:GetAnimations() then f.animInGroup:RemoveAnimations() end
+    if f.animOutGroup:GetAnimations() then f.animOutGroup:RemoveAnimations() end
+    
+    -- Clear OnPlay script (important if switching from Slide to others)
+    f.animInGroup:SetScript("OnPlay", nil)
+    
+    local type = self.db.profile.animationType
+    -- Duration is handled by C_Timer now, so we only care about In/Out durations here
+    
+    if type == "Fade" then
+        -- IN
+        local animIn = f.animInGroup:CreateAnimation("Alpha")
+        animIn:SetFromAlpha(0)
+        animIn:SetToAlpha(1)
+        animIn:SetDuration(0.2)
+        animIn:SetOrder(1)
+        
+        -- OUT
+        local animOut = f.animOutGroup:CreateAnimation("Alpha")
+        animOut:SetFromAlpha(1)
+        animOut:SetToAlpha(0)
+        animOut:SetDuration(0.5)
+        animOut:SetOrder(1)
+        
+    elseif type == "Slide" then
+        -- IN
+        local animInTrans = f.animInGroup:CreateAnimation("Translation")
+        animInTrans:SetOffset(50, 0) -- Slide RIGHT (visual: -50 -> 0)
+        animInTrans:SetDuration(0.3)
+        animInTrans:SetOrder(1)
+        animInTrans:SetSmoothing("OUT")
+        
+        local animInAlpha = f.animInGroup:CreateAnimation("Alpha")
+        animInAlpha:SetFromAlpha(0)
+        animInAlpha:SetToAlpha(1)
+        animInAlpha:SetDuration(0.2)
+        animInAlpha:SetOrder(1)
+        
+        -- Offset content at start so it slides INTO place
+        f.animInGroup:SetScript("OnPlay", function()
+             f.content:ClearAllPoints()
+             f.content:SetPoint("TOPLEFT", f, "TOPLEFT", -50, 0)
+             f.content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -50, 0)
+        end)
+        
+        -- OUT
+        local animOut = f.animOutGroup:CreateAnimation("Alpha")
+        animOut:SetFromAlpha(1)
+        animOut:SetToAlpha(0)
+        animOut:SetDuration(0.5)
+        animOut:SetOrder(1)
+        
+    elseif type == "Pop" then
+        -- IN
+        local animInScale1 = f.animInGroup:CreateAnimation("Scale")
+        animInScale1:SetScaleFrom(0.5, 0.5)
+        animInScale1:SetScaleTo(1.2, 1.2)
+        animInScale1:SetDuration(0.1)
+        animInScale1:SetOrder(1)
+        
+        local animInScale2 = f.animInGroup:CreateAnimation("Scale")
+        animInScale2:SetScaleFrom(1.2, 1.2)
+        animInScale2:SetScaleTo(1, 1)
+        animInScale2:SetDuration(0.1)
+        animInScale2:SetOrder(2)
+        
+        local animInAlpha = f.animInGroup:CreateAnimation("Alpha")
+        animInAlpha:SetFromAlpha(0)
+        animInAlpha:SetToAlpha(1)
+        animInAlpha:SetDuration(0.1)
+        animInAlpha:SetOrder(1)
+        
+        -- OUT
+        local animOut = f.animOutGroup:CreateAnimation("Alpha")
+        animOut:SetFromAlpha(1)
+        animOut:SetToAlpha(0)
+        animOut:SetDuration(0.5)
+        animOut:SetOrder(1)
+    end
+end
+
+function LootGlimpse:UpdateLayout()
+    local prev = self.anchor
+    local direction = self.db.profile.growDirection
+    local maxItems = self.db.profile.maxItems or 5
+    local ITEM_HEIGHT = 50
+    local PADDING = 5
+    
+    -- Update Anchor Height based on max items (including padding)
+    local totalHeight = (maxItems * ITEM_HEIGHT) + (math.max(0, maxItems - 1) * PADDING)
+    self.anchor:SetHeight(totalHeight)
+    
+    for i, f in ipairs(self.activeFrames) do
+        f:ClearAllPoints()
+        
+        if direction == "UP" then
+            if i == 1 then
+                 f:SetPoint("BOTTOMLEFT", prev, "BOTTOMLEFT", 0, 0)
+            else
+                 f:SetPoint("BOTTOMLEFT", prev, "TOPLEFT", 0, 5)
+            end
+        else -- DOWN
+            if i == 1 then
+                 f:SetPoint("TOPLEFT", prev, "TOPLEFT", 0, 0)
+            else
+                 f:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -5)
+            end
+        end
+        prev = f
+    end
+end
+
+function LootGlimpse:TogglePreview(show)
+    if show then
+        if not self.previewFrames then
+            self.previewFrames = {}
+            
+            local previewItemIDs = {
+                 750,    -- Poor (Ruined Pelt)
+                 6948,   -- Common (Hearthstone)
+                 2520,   -- Uncommon (Copper Claymore)
+                 1482,   -- Rare (Shadowfang)
+                 873,    -- Epic (Staff of Jordan)
+                 19019,  -- Legendary (Thunderfury)
+                 120978, -- Artifact (Ashbringer)
+                 122370, -- Heirloom (Burnished Polished Breastplate)
+            }
+            
+            local maxItems = self.db.profile.maxItems or 5
+            
+            -- Generate exactly maxItems for preview
+            for i = 1, maxItems do
+                -- Cycle through example items
+                local itemID = previewItemIDs[(i - 1) % #previewItemIDs + 1]
+                
+                local f = self:GetFrame()
+                f.isPreview = true
+                
+                -- Default/Loading state
+                f.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+                f.text:SetText("Loading...")
+                f.count:Hide()
+                
+                local item = Item:CreateFromItemID(itemID)
+                item:ContinueOnItemLoad(function()
+                    if not f.isPreview then return end
+                    
+                    local name, link, quality, _, _, _, _, _, _, texture = C_Item.GetItemInfo(itemID)
+                    
+                    if name then
+                        f.icon:SetTexture(texture)
+                        
+                        if quality then
+                            local r, g, b, hex = C_Item.GetItemQualityColor(quality)
+                            f.text:SetText("|c" .. hex .. name .. "|r")
+                        else
+                            f.text:SetText(name)
+                        end
+                        
+                        f.quality = quality
+                        f.link = link
+                        self:UpdateBackground(f)
+                        
+                        -- Dynamic Sizing logic
+                        self:UpdateFrameSize(f)
+                    end
+                end)
+
+                f:Show()
+                f:SetAlpha(1)
+                f.animInGroup:Stop()
+                f.animOutGroup:Stop()
+                if f.holdTimer then f.holdTimer:Cancel() f.holdTimer = nil end
+                
+                table.insert(self.previewFrames, f)
+                table.insert(self.activeFrames, f)
+            end
+            
+            self:UpdateLayout()
+        end
+    else
+        if self.previewFrames then
+            for _, f in ipairs(self.previewFrames) do
+                self:RecycleFrame(f)
+            end
+            self.previewFrames = nil
+        end
+    end
+end
