@@ -83,6 +83,19 @@ function LootGlimpse:OnInitialize()
                 self:TogglePreview(true)
             end
         end, 1, 10, 1)
+
+        -- Grow Direction (Checkbox: Grow Upwards)
+        LibEditMode:RegisterCustomCheckbox(self.anchor, "Grow Upwards", 
+            function() -- OnChecked
+                self.db.profile.growDirection = "UP"
+                self:UpdateLayout()
+            end,
+            function() -- OnUnchecked
+                self.db.profile.growDirection = "DOWN"
+                self:UpdateLayout()
+            end,
+            "growUpwards" -- internalName
+        )
         
         -- Hook into the frame's movement to ensure layout updates
         self.anchor:HookScript("OnDragStop", function()

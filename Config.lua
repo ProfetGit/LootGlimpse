@@ -82,51 +82,7 @@ function LootGlimpse:SetupOptions()
     )
     Settings.CreateCheckbox(category, showGoldSetting, "Display looted money")
 
-    -- Duration (Slider)
-    -- Note: Using CreateSlider which is standard in Settings API, though not explicitly in the guide snippet,
-    -- it follows the same pattern as Checkbox/Dropdown.
-    local durationSetting = Settings.RegisterAddOnSetting(
-        category,
-        "LG_DURATION",
-        "duration",
-        self.db.profile,
-        Settings.VarType.Number,
-        "Duration",
-        4
-    )
-    CreateSliderWithLabel(category, durationSetting, { 
-        minValue = 1, maxValue = 10, 
-        min = 1, max = 10,
-        step = 0.5, 
-        steps = 18,
-        formatter = function(value) return string.format("%.1f s", value) end 
-    }, "How long the loot is shown (seconds)")
 
-    -- Grow Direction (Dropdown with Proxy for UpdateLayout)
-    local function GetGrowDir() return self.db.profile.growDirection end
-    local function SetGrowDir(value) 
-        self.db.profile.growDirection = value
-        self:UpdateLayout()
-    end
-    
-    local growDirSetting = Settings.RegisterProxySetting(
-        category,
-        "LG_GROW_DIRECTION",
-        Settings.VarType.String,
-        "Grow Direction",
-        "UP",
-        GetGrowDir,
-        SetGrowDir
-    )
-    
-    local function GetGrowDirOptions()
-        local container = Settings.CreateControlTextContainer()
-        container:Add("UP", "Up")
-        container:Add("DOWN", "Down")
-        return container:GetData()
-    end
-    
-    Settings.CreateDropdown(category, growDirSetting, GetGrowDirOptions, "Direction the list should grow")
 
     -- Quality Filter (Dropdown)
     local function GetQualityOptions()
