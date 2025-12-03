@@ -1144,7 +1144,7 @@ hooksecurefunc(f, "OnLoad", function()
     frame.Buttons.RevertChangesButton:SetText(HUD_EDIT_MODE_REVERT_CHANGES)
     frame.Buttons.RevertChangesButton.layoutIndex = 1
     frame.Buttons.Divider = frame.Buttons:CreateTexture(nil, "ARTWORK")
-    frame.Buttons.Divider:SetMask("Interface\FriendsFrame\UI-FriendsFrame-OnlineDivider")
+    frame.Buttons.Divider:SetMask("Interface\\FriendsFrame\\UI-FriendsFrame-OnlineDivider")
     frame.Buttons.Divider:Hide()
     frame.Buttons.Divider:SetSize(330, 16)
     frame.Buttons.Divider.layoutIndex = 2
@@ -1155,8 +1155,27 @@ hooksecurefunc(f, "OnLoad", function()
     frame:OnLoad()
     function frame:UpdateSizeAndAnchors(systemFrame)
         if systemFrame == self.attachedToSystem then
-            frame:ClearAllPoints()
-            frame:SetPoint("TOP", EditModeSystemSettingsDialog, "BOTTOM")
+            if EditModeSystemSettingsDialog:IsShown() then
+                frame:ClearAllPoints()
+                frame:SetPoint("TOP", EditModeSystemSettingsDialog, "BOTTOM")
+            else
+                -- Custom anchoring for standalone frames
+                if not frame:IsShown() then
+                    frame:ClearAllPoints()
+                    local rightSpace = (UIParent:GetRight() or 0) - (systemFrame:GetRight() or 0)
+                    if rightSpace > 320 then
+                        -- frame:SetPoint("TOPLEFT", systemFrame, "TOPRIGHT", 20, 0)
+                        local x = systemFrame:GetRight() + 20
+                        local y = systemFrame:GetTop()
+                        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
+                    else
+                        -- frame:SetPoint("TOPRIGHT", systemFrame, "TOPLEFT", -20, 0)
+                        local x = systemFrame:GetLeft() - 20
+                        local y = systemFrame:GetTop()
+                        frame:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", x, y)
+                    end
+                end
+            end
             self:Layout()
         else
             frame:Hide()

@@ -64,6 +64,30 @@ function LootGlimpse:OnInitialize()
         end
         
         -- Register Frame
+        -- Sync settings from profile to Edit Mode DB to prevent defaults (100)
+        if not self.db.profile.editMode.settings then self.db.profile.editMode.settings = {} end
+        
+        -- Frame Size (16)
+        if not self.db.profile.editMode.settings[16] then
+            self.db.profile.editMode.settings[16] = (self.db.profile.scale or 1) * 100
+        end
+
+        -- Sliders (18)
+        if not self.db.profile.editMode.settings[18] then self.db.profile.editMode.settings[18] = {} end
+        if not self.db.profile.editMode.settings[18]["duration"] then
+            self.db.profile.editMode.settings[18]["duration"] = self.db.profile.duration
+        end
+        if not self.db.profile.editMode.settings[18]["maxItems"] then
+            self.db.profile.editMode.settings[18]["maxItems"] = self.db.profile.maxItems
+        end
+
+        -- Custom Checkboxes (12)
+        if not self.db.profile.editMode.settings[12] then self.db.profile.editMode.settings[12] = {} end
+        if not self.db.profile.editMode.settings[12]["growUpwards"] then
+            self.db.profile.editMode.settings[12]["growUpwards"] = (self.db.profile.growDirection == "UP") and 1 or 0
+        end
+        
+        -- Register Frame
         -- Pass false for clamped (6th arg) to disable "Clamp to Screen" default and setting
         LibEditMode:RegisterFrame(self.anchor, "Loot Glimpse", self.db.profile.editMode, UIParent, "CENTER", false)
         
