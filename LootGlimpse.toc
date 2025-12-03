@@ -1,6 +1,6 @@
 ## Interface: 110000
 ## IconTexture: Interface\AddOns\LootGlimpse\LootGlimpse.png
-## Title: LootGlimpse
+## Title: Loot Glimpse
 ## Notes: Displays looted items in a separate UI component.
 ## Author: Antigravity
 ## Version: 1.0.0

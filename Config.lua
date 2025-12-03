@@ -3,7 +3,7 @@ local LSM = LibStub("LibSharedMedia-3.0", true)
 
 function LootGlimpse:SetupOptions()
     -- 1. Basic Setup & Category Registration
-    local category, layout = Settings.RegisterVerticalLayoutCategory("LootGlimpse")
+    local category, layout = Settings.RegisterVerticalLayoutCategory("Loot Glimpse")
     self.settingsCategory = category
     Settings.RegisterAddOnCategory(category)
 
@@ -254,11 +254,28 @@ function LootGlimpse:SetupOptions()
 
     -- Background Color (Button with Swatch)
     local function UpdateSwatch(frame)
-        if frame and frame.swatch then
+        local target = frame or self.colorButtonFrame
+        if target and target.swatch then
             local c = self.db.profile.backgroundColor
-            frame.swatch:SetColorTexture(c.r, c.g, c.b, c.a)
+            target.swatch:SetColorTexture(c.r, c.g, c.b, c.a)
         end
     end
+
+    -- Register invisible proxy settings for color components to handle "Defaults" reset
+    local function SetColorComponent(component, value)
+        self.db.profile.backgroundColor[component] = value
+        self:UpdateVisuals()
+        UpdateSwatch()
+    end
+
+    Settings.RegisterProxySetting(category, "LG_COLOR_R", Settings.VarType.Number, "Color R", 0.404, 
+        function() return self.db.profile.backgroundColor.r end, function(v) SetColorComponent("r", v) end)
+    Settings.RegisterProxySetting(category, "LG_COLOR_G", Settings.VarType.Number, "Color G", 0.404, 
+        function() return self.db.profile.backgroundColor.g end, function(v) SetColorComponent("g", v) end)
+    Settings.RegisterProxySetting(category, "LG_COLOR_B", Settings.VarType.Number, "Color B", 0.404, 
+        function() return self.db.profile.backgroundColor.b end, function(v) SetColorComponent("b", v) end)
+    Settings.RegisterProxySetting(category, "LG_COLOR_A", Settings.VarType.Number, "Color A", 0.5, 
+        function() return self.db.profile.backgroundColor.a end, function(v) SetColorComponent("a", v) end)
 
     local colorButton = CreateSettingsButtonInitializer("Background Color", "Set Color", function(button)
         local c = self.db.profile.backgroundColor
@@ -297,6 +314,7 @@ function LootGlimpse:SetupOptions()
              frame.swatch:SetSize(20, 20)
              frame.swatch:SetPoint("LEFT", frame.Button, "RIGHT", 10, 0)
         end
+        self.colorButtonFrame = frame
         UpdateSwatch(frame)
     end
 

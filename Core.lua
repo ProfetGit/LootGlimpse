@@ -65,7 +65,7 @@ function LootGlimpse:OnInitialize()
         
         -- Register Frame
         -- Pass false for clamped (6th arg) to disable "Clamp to Screen" default and setting
-        LibEditMode:RegisterFrame(self.anchor, "LootGlimpse", self.db.profile.editMode, UIParent, "CENTER", false)
+        LibEditMode:RegisterFrame(self.anchor, "Loot Glimpse", self.db.profile.editMode, UIParent, "CENTER", false)
         
         -- Standard Scale Slider (Frame Size)
         LibEditMode:RegisterResizable(self.anchor)
