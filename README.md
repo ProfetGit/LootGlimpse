@@ -1,6 +1,6 @@
-# LootGlimpse
+# Loot Glimpse
 
-**LootGlimpse** is a modern, lightweight, and visually stunning loot display addon for World of Warcraft. It provides a premium way to see what you've looted without cluttering your chat window.
+**Loot Glimpse** is a modern, lightweight, and visually stunning loot display addon for World of Warcraft. It provides a premium way to see what you've looted without cluttering your chat window.
 
 ## Features
 
@@ -26,7 +26,7 @@ The addon works out of the box! Just loot something and watch it appear.
 
 ## Configuration
 
-You can access the configuration via the **Options** menu (Game Menu -> Options -> AddOns -> LootGlimpse) or by typing `/lg`.
+You can access the configuration via the **Options** menu (Game Menu -> Options -> AddOns -> Loot Glimpse) or by typing `/lg`.
 
 ## Installation
 
